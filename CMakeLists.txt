@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 2.8) 
 
-project(HdrCalibPlugin)
+project(HdrTools)
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set (CMAKE_CXX_FLAGS "--std=gnu++11 ${CMAKE_CXX_FLAGS}")
+endif ()
 
 # Check that submodule have been initialized and updated
 if(NOT EXISTS ${PROJECT_SOURCE_DIR}/openfx/include)
@@ -12,6 +16,6 @@ endif()
 # Add openfx subdirectory
 add_subdirectory("${PROJECT_SOURCE_DIR}/openfx")
 
-# Build HdrCalib plugin
-create_ofx_plugin(HdrCalibPlugin src/)
+# Add plugin source 
+add_subdirectory("${PROJECT_SOURCE_DIR}/src")
 
