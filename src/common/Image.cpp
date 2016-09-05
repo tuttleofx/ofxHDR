@@ -82,11 +82,11 @@ void Image<DataType>::clear()
 template<typename DataType>
 void Image<DataType>::setZero()
 {
-  for(std::size_t row = 0; row < getHeight(); ++row)
+  for(std::size_t y = 0; y < getHeight(); ++y)
   {
-    for(std::size_t col = 0; col < getWidth(); ++col)
+    for(std::size_t x = 0; x < getWidth(); ++x)
     {
-      DataType *ptr = getPixel(col, row);
+      DataType *ptr = getPixel(x, y);
 
       for(std::size_t channel = 0; channel < getNbChannels(); ++channel)
       {
@@ -101,11 +101,11 @@ void Image<DataType>::setZero()
 template<typename DataType>
 void Image<DataType>::setRed()
 {
-  for(std::size_t row = 0; row < getHeight(); ++row)
+  for(std::size_t y = 0; y < getHeight(); ++y)
   {
-    for(std::size_t col = 0; col < getWidth(); ++col)
+    for(std::size_t x = 0; x < getWidth(); ++x)
     {
-      DataType *ptr = getPixel(col, row);
+      DataType *ptr = getPixel(x, y);
       *ptr = 1;
       ++ptr;
       for(std::size_t channel = 1; channel < getNbChannels(); ++channel)
@@ -123,12 +123,12 @@ void Image<DataType>::multiply(const Image<DataType> &other)
 {
   assert(this->getSize() == other.getSize());
 
-  for(std::size_t row = 0; row < getHeight(); ++row)
+  for(std::size_t y = 0; y < getHeight(); ++y)
   {
-    for(std::size_t col = 0; col < getWidth(); ++col)
+    for(std::size_t x = 0; x < getWidth(); ++x)
     {
-      DataType *ptr = getPixel(col, row);
-      const DataType *otherPtr = other.getPixel(col, row);
+      DataType *ptr = getPixel(x, y);
+      const DataType *otherPtr = other.getPixel(x, y);
 
       for(std::size_t channel = 0; channel < getNbChannels(); ++channel)
       {
@@ -144,11 +144,11 @@ void Image<DataType>::multiply(const Image<DataType> &other)
 template<typename DataType>
 void Image<DataType>::multiply(float coefficient)
 {
-  for(std::size_t row = 0; row < getHeight(); ++row)
+  for(std::size_t y = 0; y < getHeight(); ++y)
   {
-    for(std::size_t col = 0; col < getWidth(); ++col)
+    for(std::size_t x = 0; x < getWidth(); ++x)
     {
-      DataType *ptr = getPixel(col, row);
+      DataType *ptr = getPixel(x, y);
 
       for(std::size_t channel = 0; channel < getNbChannels(); ++channel)
       {
@@ -174,7 +174,14 @@ void Image<DataType>::divide(const Image &other)
 
       for(std::size_t channel = 0; channel < getNbChannels(); ++channel)
       {
-        *ptr = *ptr / *otherPtr;
+        if(*otherPtr == 0)
+        {
+          *ptr = 0;
+        }
+        else
+        {
+          *ptr = *ptr / *otherPtr;
+        }
         
         ++ptr;
         ++otherPtr;
@@ -222,7 +229,7 @@ void Image<DataType>::checkSameDimensions(const std::vector< Image<DataType> > &
     if((image.getWidth() != images[0].getWidth())
             || (image.getHeight() != images[0].getHeight()))
     {
-      throw std::logic_error("Group images have different sizes");
+      throw std::logic_error("images have different sizes");
     }
   }
 }

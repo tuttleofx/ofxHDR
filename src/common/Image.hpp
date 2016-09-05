@@ -124,7 +124,12 @@ public:
 
   DataType* getPixel(std::size_t x, std::size_t y) const
   {
-    return _data + (y * _rowBufferSize) + x * _nbChannels;
+    return _data + (y * _rowBufferSize) + (x * _nbChannels);
+  }
+  
+  DataType* getPixel(std::size_t x, std::size_t y, std::size_t channel) const
+  {
+    return _data + (y * _rowBufferSize) + (x * _nbChannels) + channel;
   }
 
   std::size_t getWidth() const

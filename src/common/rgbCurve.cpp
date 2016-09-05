@@ -166,12 +166,14 @@ void rgbCurve::interpolateMissingValues()
 
 float& rgbCurve::operator() (float sample, std::size_t channel)
 {
+  assert(sample <= 1.0f);
   assert(channel < _data.size());
   return _data[channel][getIndex(sample)];
 }
 
 float rgbCurve::operator() (float sample, std::size_t channel) const
 {
+  assert(sample <= 1.0f);
   assert(channel < _data.size());
   return _data[channel][getIndex(sample)];
 }
