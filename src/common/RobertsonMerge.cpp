@@ -1,6 +1,7 @@
 #include "RobertsonMerge.hpp"
 #include <cassert>
 #include <cmath>
+#include <limits>
 #include <iostream>
 
 
@@ -24,49 +25,85 @@ void RobertsonMerge::process(const std::vector< Image<float> > &images,
   assert(!images.empty());
   assert(images.size() == times.size());
   Image<float>::checkSameDimensions(images);
-
-  //get images width, height and number of channels
-  std::size_t width = images.front().getWidth();
-  std::size_t height = images.front().getHeight();
-  std::size_t channels = radiance.getNbChannels();
-
-  //create the new radiance 
+  
+  //reset radiance image
   radiance.setZero();
 
-  Image<float> wsum(width, height, channels);
-  wsum.setZero();
-
-  for(std::size_t i = 0; i < images.size(); ++i) 
+  //get images width, height
+  const std::size_t width = images.front().getWidth();
+  const std::size_t height = images.front().getHeight();
+  
+  //min and max trusted values
+  const float minTrustedValue = 0.0f - std::numeric_limits<float>::epsilon();
+  const float maxTrustedValue = 1.0f + std::numeric_limits<float>::epsilon();
+  
+  for(std::size_t y = 0; y < height; ++y)
   {
-    float sqrTime = times[i] * times[i];
-
-    for(std::size_t y = 0; y < height; ++y)
+    for(std::size_t x = 0; x < width; ++x)
     {
-      for(std::size_t x = 0; x < width; ++x)
+      //for each pixels
+      float *ptrRadiance = radiance.getPixel(x, y);
+      
+      for(std::size_t channel = 0; channel < radiance.getNbChannels(); ++channel)
       {
-        //for each pixels
-        const float *ptrImage = images[i].getPixel(x, y);
-        float *ptrRadiance = radiance.getPixel(x, y);
-        float *ptrWsum = wsum.getPixel(x, y);
-
-        for(std::size_t channel = 0; channel < channels; ++channel)
+        float wsum = 0.0f;
+        float wdiv = 0.0f;
+        float minTimeSaturation = std::numeric_limits<float>::max();
+        float maxTimeSaturation = std::numeric_limits<float>::min();
+     
+        for(std::size_t i = 0; i < images.size(); ++i) 
         {
-          float w = _weight(*ptrImage, channel);
-          float r = response(*ptrImage, channel);
-
-          *ptrRadiance += w * r * times[i];
-          *ptrWsum += w * sqrTime;
-
-          ++ptrImage;
-          ++ptrRadiance;
-          ++ptrWsum;
+          //for each images
+          const float value = *images[i].getPixel(x, y, channel);
+          const float time = times[i];
+          const float w = _weight(value, channel);
+          const float r = response(value, channel);
+          
+          wsum += w * time * r;
+          wdiv += w * time * time;
+          
+          //saturation detection
+          if(value > maxTrustedValue) 
+          {
+            minTimeSaturation = std::min(minTimeSaturation, time);
+          }
+          
+          if(value < minTrustedValue) 
+          {
+            maxTimeSaturation = std::max(maxTimeSaturation, time);
+          }
         }
-      }
+        
+        //saturation correction
+        if((wdiv == 0.0f) && 
+               (maxTimeSaturation > std::numeric_limits<float>::min())) 
+        {
+          wsum = minTrustedValue;
+          wdiv = maxTimeSaturation;
+        }
+        
+        if((wdiv == 0.0f) && 
+               (minTimeSaturation < std::numeric_limits<float>::max())) 
+        {
+          wsum = maxTrustedValue;
+          wdiv = minTimeSaturation;
+        }
+
+        if(wdiv != 0.0f) 
+        {
+          *ptrRadiance = wsum / wdiv;
+        } 
+        else 
+        {
+          *ptrRadiance = 0.0f;
+        }
+        
+        ++ptrRadiance; //next channel
+      } 
     }
   }
-  
-  radiance.divide(wsum);
 }
+
 
 } // namespace common
 } // namespace cameraColorCalibration
