@@ -7,6 +7,9 @@
 //Max number of source image 
 #define K_MAX_SOURCE_IMAGES 20
 
+//Quantization
+#define K_QUANTIZATION 1 << 12 //(12 bits)
+
 
 namespace cameraColorCalibration {
 namespace hdrMerge {
@@ -41,22 +44,23 @@ private:
   //Response Parameters
   OFX::ChoiceParam *_responsePreset = fetchChoiceParam(kParamResponsePreset);
   OFX::StringParam *_responseFilePath = fetchStringParam(kParamResponseFilePath);
-  OFX::PushButtonParam *_responseLoad = fetchPushButtonParam(kParamResponseLoad);
   OFX::PushButtonParam *_responseExport = fetchPushButtonParam(kParamResponseExport);
-  OFX::PushButtonParam *_responseFromKeys = fetchPushButtonParam(kParamResponseFromKeys);
   OFX::DoubleParam *_responseRed = fetchDoubleParam(kParamResponseRed);
   OFX::DoubleParam *_responseGreen = fetchDoubleParam(kParamResponseGreen);
   OFX::DoubleParam *_responseBlue = fetchDoubleParam(kParamResponseBlue); 
   
   //Weight Parameters
   OFX::ChoiceParam *_weightPreset = fetchChoiceParam(kParamWeightPreset);
+  OFX::DoubleParam *_weightGaussianSize = fetchDoubleParam(kParamWeightGaussianCustom);
   OFX::StringParam *_weightFilePath = fetchStringParam(kParamWeightFilePath);
-  OFX::PushButtonParam *_weightLoad = fetchPushButtonParam(kParamWeightLoad);
   OFX::PushButtonParam *_weightExport = fetchPushButtonParam(kParamWeightExport);
-  OFX::PushButtonParam *_weightFromKeys = fetchPushButtonParam(kParamWeightFromKeys);
   OFX::DoubleParam *_weightRed = fetchDoubleParam(kParamWeightRed);
   OFX::DoubleParam *_weightGreen = fetchDoubleParam(kParamWeightGreen);
   OFX::DoubleParam *_weightBlue = fetchDoubleParam(kParamWeightBlue); 
+  
+  //Debug Parameters
+  OFX::BooleanParam *_debugActive = fetchBooleanParam(kParamDebugActive);
+  OFX::IntParam *_debugOutput = fetchIntParam(kParamDebugOutput);
   
   //Invalidation Parameters
   OFX::IntParam *_forceInvalidation = fetchIntParam(kParamForceInvalidation);
@@ -65,11 +69,9 @@ private:
   std::vector< cameraColorCalibration::common::Image<float> >  _ldrImages;
   cameraColorCalibration::common::Image<float> _hdrImage;
   std::vector<float> _luminances;
-  cameraColorCalibration::common::rgbCurve  _response;
-  cameraColorCalibration::common::RobertsonMerge _merge;
   
   //Result parameters are uptodate 
-  bool _uptodate = false;
+//  bool _uptodate = false;
 
 public:
   
@@ -78,6 +80,13 @@ public:
    * @param handle
    */
   HdrMergePlugin(OfxImageEffectHandle handle);
+
+  /** 
+   * @brief the get frames needed action
+   * If the effect wants change the frames needed on an input clip from the default values (which is the same as the frame to be renderred)
+   * it should do so by calling the OFX::FramesNeededSetter::setFramesNeeded function on the \em frames argument.
+  */
+  virtual void getFramesNeeded(const OFX::FramesNeededArguments &args, OFX::FramesNeededSetter &frames);
 
   /**
    * @brief Override render method
@@ -124,17 +133,7 @@ public:
    * @brief Load images and metadatas in memory
    * @return true if all has been loaded
    */
-  bool loadGroups();
-  
-  /**
-   * @brief Refresh response function keyframes 
-   */
-  void refreshResponseFunctionKeyFrames();
-  
-  /**
-   * @brief Refresh weight function keyframes 
-   */
-  void refreshWeightFunctionKeyFrames();
+  bool loadGroup();
   
   /**
    * @brief Update UI response function preset
@@ -146,15 +145,40 @@ public:
    */
   void updateWeightPreset();
   
-  /**
-   * @brief Update response function from keyframes
+ /**
+   * @brief Set response function 
    */
-  void updateResponseFunctionFromKeyFrames(bool sendMessage = true);
+  void getResponseFunction(cameraColorCalibration::common::rgbCurve &response);
   
   /**
-   * @brief Update weight function from keyframes
+   * @brief Set weight function
    */
-  void updateWeightFunctionFromKeyFrames(bool sendMessage = true);
+  void getWeightFunction(cameraColorCalibration::common::rgbCurve &weight);
+  
+  /**
+   * @brief Set weight function
+   */
+  void getFunctionFromFile(const std::string &path, cameraColorCalibration::common::rgbCurve &curve);
+  
+  /**
+   * @brief Set response function from keyframes
+   */
+  void getResponseFunctionFromKeyFrames(cameraColorCalibration::common::rgbCurve &response);
+  
+  /**
+   * @brief Set weight function from keyframes
+   */
+  void getWeightFunctionFromKeyFrames(cameraColorCalibration::common::rgbCurve &weight);
+  
+  /**
+   * @brief Refresh response function keyframes 
+   */
+  void refreshResponseFunctionKeyFrames();
+  
+  /**
+   * @brief Refresh weight function keyframes 
+   */
+  void refreshWeightFunctionKeyFrames();
   
   /**
    * @brief Clear response function keyframes

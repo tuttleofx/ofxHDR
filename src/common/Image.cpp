@@ -20,6 +20,38 @@ Image<DataType>::Image(std::size_t width, std::size_t height, std::size_t nbChan
 template<typename DataType>
 Image<DataType>::Image(OFX::Image *imgData)
 {
+  setOfxImage(imgData);
+}
+
+//  template<typename DataType>
+//  Image<DataType>::Image(const Image &other)
+//  {
+//    if(other._hasOwnership || other._imgPtr)
+//    {
+//      throw std::logic_error("Don't duplicate the full image buffer.");
+//    }
+//    _imgPtr = other._imgPtr;
+//    _data = other._data;
+//    _hasOwnership = other._hasOwnership;
+//    _width = other._width;
+//    _height = other._height;
+//    _nbChannels = other._nbChannels;
+//    _size = other._size;
+//    _nbPixels = other._nbPixels;
+//    _rowBufferSize = other._rowBufferSize;
+//    _channelQuantization = other._channelQuantization;
+//  }
+
+template<typename DataType>
+Image<DataType>::~Image()
+{
+  delete _imgPtr;
+  clear();
+}
+  
+template<typename DataType>
+void Image<DataType>::setOfxImage(OFX::Image *imgData)
+{
   std::size_t width = imgData->getRegionOfDefinition().x2 - imgData->getRegionOfDefinition().x1;
   std::size_t height = imgData->getRegionOfDefinition().y2 - imgData->getRegionOfDefinition().y1;
   
@@ -30,23 +62,17 @@ Image<DataType>::Image(OFX::Image *imgData)
 }
 
 template<typename DataType>
-Image<DataType>::~Image()
-{
-  clear();
-}
-
-template<typename DataType>
 void Image<DataType>::createInternalBuffer(std::size_t width, std::size_t height, std::size_t nbChannels)
 {
   clear();
   _hasOwnership = 1;
   _nbChannels = nbChannels;
-  _data = new DataType[width * height * _nbChannels];
   _width = width;
   _height = height;
-  _size = width * height * _nbChannels;
+  _size = width * height * nbChannels;
+  _data = new DataType[_size];
   _nbPixels = width * height;
-  _rowBufferSize = width * _nbChannels;
+  _rowBufferSize = width * nbChannels;
 }
 
 template<typename DataType>
@@ -58,7 +84,7 @@ void Image<DataType>::setExternalBuffer(DataType *data, std::size_t width, std::
   _width = width;
   _height = height;
   _nbChannels = channels;
-  _size = width * height * _nbChannels;
+  _size = width * height * channels;
   _nbPixels = width * height;
   _rowBufferSize = rowBufferSize;
 }
@@ -68,7 +94,6 @@ void Image<DataType>::clear()
 {
   if(_hasOwnership)
   {
-    delete _imgPtr;
     delete _data;
   }
   _data = nullptr;
@@ -193,8 +218,8 @@ void Image<DataType>::divide(const Image &other)
 template<typename DataType>
 void Image<DataType>::copyFrom(const Image &other)
 {
-  assert(this->getHeight() >= other.getHeight());
-  assert(this->getWidth() >= other.getWidth());
+  assert(this->getHeight() == other.getHeight());
+  assert(this->getWidth() == other.getWidth());
   assert(this->getNbChannels() >= other.getNbChannels());
   
   this->setZero();

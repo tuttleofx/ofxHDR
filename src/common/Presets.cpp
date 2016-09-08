@@ -17,13 +17,14 @@ void initResponseFromPreset(rgbCurve& response, EPresetResponse preset)
   }
 }
 
-void initWeightFromPreset(rgbCurve& weight, EPresetWeight preset)
+void initWeightFromPreset(rgbCurve& weight, double gaussianSize, EPresetWeight preset)
 {
   switch(preset)
   {
     case EPresetWeight::eWeightPresetFromFile : break;
     case EPresetWeight::eWeightPresetLinear : weight.setLinear(); break;
     case EPresetWeight::eWeightPresetGaussian : weight.setGaussian(); break;
+    case EPresetWeight::eWeightPresetGaussianCustom : weight.setGaussian(gaussianSize); break;
     case EPresetWeight::eWeightPresetTriangular : weight.setTriangular(); break;
     case EPresetWeight::eWeightPresetPlateau : weight.setPlateau(); break;
     case EPresetWeight::eWeightPresetFlat : weight.setOne(); break;

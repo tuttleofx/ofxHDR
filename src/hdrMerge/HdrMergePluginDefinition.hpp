@@ -31,11 +31,9 @@
 
 #define kParamResponsePreset "responsePreset"
 #define kParamResponseFilePath "responseFilePath"
-#define kParamResponseLoad "responseLoad"
 #define kParamResponseExport "responseExport"
 #define kParamResponseRefreshKeys "responseRefreshKeys"
 #define kParamResponseClearKeys "responseClearKeys"
-#define kParamResponseFromKeys "responseFromKeys"
 #define kParamResponseRed "responseRed"
 #define kParamResponseGreen "responseGreen"
 #define kParamResponseBlue "responseBlue"
@@ -45,15 +43,21 @@
 #define kParamGroupWeight "groupWeight"
 
 #define kParamWeightPreset "weightPreset"
+#define kParamWeightGaussianCustom "weightGaussianCustom"
 #define kParamWeightFilePath "weightFilePath"
-#define kParamWeightLoad "weightLoad"
 #define kParamWeightExport "weightExport"
 #define kParamWeightRefreshKeys "weightRefreshKeys"
 #define kParamWeightClearKeys "weightClearKeys"
-#define kParamWeightFromKeys "weightFromKeys"
 #define kParamWeightRed "weightRed"
 #define kParamWeightGreen "weightGreen"
 #define kParamWeightBlue "weightBlue"
+
+
+//Debug Group
+#define kParamGroupDebug "groupDebug"
+
+#define kParamDebugActive "debugActive"
+#define kParamDebugOutput "debugOutput"
 
 
 //Invalidation Parameters

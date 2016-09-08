@@ -12,9 +12,7 @@ namespace cameraColorCalibration {
 namespace hdrMerge {
 
 HdrMergePlugin::HdrMergePlugin(OfxImageEffectHandle handle) : 
-    OFX::ImageEffect(handle),
-    _response(1 << 12),
-    _merge(1 << 12)
+    OFX::ImageEffect(handle)
 {   
   for(std::size_t image = 0; image < K_MAX_SOURCE_IMAGES; ++image)
   {
@@ -26,6 +24,11 @@ HdrMergePlugin::HdrMergePlugin(OfxImageEffectHandle handle) :
   }
   //reset all plugins options
   reset();
+}
+
+void HdrMergePlugin::getFramesNeeded(const OFX::FramesNeededArguments &args, OFX::FramesNeededSetter &frames)
+{
+  frames.setFramesNeeded(*_srcClip, _srcClip->getFrameRange());
 }
 
 void HdrMergePlugin::render(const OFX::RenderArguments &args)
@@ -42,36 +45,88 @@ void HdrMergePlugin::render(const OFX::RenderArguments &args)
     return;
   }
 
-  //Merge source parameters isn't uptodate
-  if(!_uptodate)
+  try
   {
+    
     std::cout << "render : load source ..." << std::endl;
-    if(!loadGroups() || abort())
+    
+    if(!loadGroup())
+      return;
+
+    if(abort())
+      return;
+    
+    //Debug Output
+    if(_debugActive->getValue())
     {
+      std::cout << "render : [debug] fetch"  << std::endl;
+      OFX::Image *outputPtr = _dstClip->fetchImage(args.time);
+      if(outputPtr == NULL)
+      {
+        std::cout << "render : [debug output clip] is NULL" << std::endl;
+        return;
+      }
+
+      cameraColorCalibration::common::Image<float> output(outputPtr);
+      
+      std::size_t outputIndex = _debugOutput->getValue() - 1;
+      
+      if(_ldrImages.size() <= outputIndex)
+      {
+        output.setRed();
+      }
+      else
+      {
+        std::cout << "render : Debug" << std::endl;
+        output.copyFrom(_ldrImages[outputIndex]);
+      }
       return;
     }
     
     std::cout << "render : initialize output HDR ..." << std::endl;
     _hdrImage.createInternalBuffer(_ldrImages.front().getWidth(), _ldrImages.front().getHeight(), 3);
+
+    {
+      std::cout << "render : [merge]" << std::endl;
+      float targetExposure = _targetShutter->getValue();
+      std::cout << "render : [merge] targetExposure: " << targetExposure << std::endl;
+
+      cameraColorCalibration::common::RobertsonMerge merge;
+      cameraColorCalibration::common::rgbCurve weight(K_QUANTIZATION);
+      cameraColorCalibration::common::rgbCurve response(K_QUANTIZATION);
+
+      getWeightFunction(weight);
+      getResponseFunction(response);
+
+      merge.process(_ldrImages, _luminances, weight, response, _hdrImage, targetExposure);
+      std::cout << "render : [merge] -- OK" << std::endl;
+    }
+
+      /*cameraColorCalibration::common::RobertsonMerge::getExposure(_targetShutter->getValue(),
+                                                                                      _targetIso->getValue(),
+                                                                                      _targetAperture->getValue());*/
+  //    float averageLuminance = std::accumulate(_luminances.begin(), _luminances.end(), 0) / (double)(_luminances.size());
+  //    
+  //    _hdrImage.multiply(targetExposure / averageLuminance);
     
-    std::cout << "render : [merge]" << std::endl;
-    _merge.process(_ldrImages, _hdrImage, _luminances, _response);
-    std::cout << "render : [merge] -- OK" << std::endl;
-    _uptodate = true;
+
+    //Write Output
+    std::cout << "render : [output clip] fetch"  << std::endl;
+    OFX::Image *outputPtr = _dstClip->fetchImage(args.time);
+    if(outputPtr == NULL)
+    {
+      std::cout << "render : [output clip] is NULL" << std::endl;
+      return;
+    }
+
+    cameraColorCalibration::common::Image<float> output(outputPtr);
+    std::cout << "render : HDR" << std::endl;
+    output.copyFrom(_hdrImage);
   }
-  
-  //Write Output
-  std::cout << "render : [output clip] fetch"  << std::endl;
-  OFX::Image *outputPtr = _dstClip->fetchImage(args.time);
-  if(outputPtr == NULL)
+  catch(std::exception &e)
   {
-    std::cout << "render : [output clip] is NULL" << std::endl;
-    return;
+    this->sendMessage(OFX::Message::eMessageError, "hdrmerge.render", e.what());
   }
-  
-  cameraColorCalibration::common::Image<float> output(outputPtr);
-  std::cout << "render : HDR" << std::endl;
-  output.copyFrom(_hdrImage);
 }
 
 bool HdrMergePlugin::isIdentity(const OFX::IsIdentityArguments &args, OFX::Clip * &identityClip, double &identityTime)
@@ -84,7 +139,7 @@ void HdrMergePlugin::changedClip(const OFX::InstanceChangedArgs &args, const std
   if(args.reason != OFX::InstanceChangeReason::eChangeTime)
   {
     //A clip changed
-    _uptodate = false;
+//    _uptodate = false;
   
     updateSourceParameters();
   }
@@ -96,58 +151,35 @@ void HdrMergePlugin::changedParam(const OFX::InstanceChangedArgs &args, const st
   if(changedMetaData(paramName))
   {
     //a meta data has changed, ev have been update by the function
-    _uptodate = false;
     return;
   }
 
   if(paramName == kParamResponsePreset)
   {
     updateResponsePreset();
-    _uptodate = false;
     return;
   }
   
   if(paramName == kParamWeightPreset)
   {
     updateWeightPreset();
-    _uptodate = false;
     return;
-  }
-  
-  if((paramName == kParamResponseLoad) || (paramName == kParamWeightLoad))
-  {
-    try 
-    {
-      if(paramName == kParamResponseLoad)
-      {
-        cameraColorCalibration::common::rgbCurve fileCurve(_responseFilePath->getValue());
-        _response = fileCurve;
-      }
-      else
-      {
-        cameraColorCalibration::common::rgbCurve fileCurve(_weightFilePath->getValue());
-        _merge.setWeightFunction(fileCurve);
-      }
-      this->sendMessage(OFX::Message::eMessageMessage, "hdrmerge.curve.load", "Function loaded from file.");
-      _uptodate = false;
-    }
-    catch(std::exception &e)
-    {
-      this->sendMessage(OFX::Message::eMessageError, "hdrmerge.curve.load", e.what());
-    }
   }
   
   if((paramName == kParamResponseExport) || (paramName == kParamWeightExport))
   {
     try 
     {
+      cameraColorCalibration::common::rgbCurve curve(K_QUANTIZATION);
       if(paramName == kParamResponseExport)
       {
-        _response.write(_responseFilePath->getValue(), "Response Function");
+        getResponseFunction(curve);
+        curve.write(_responseFilePath->getValue(), "Response Function");
       }
       else
       {
-        _merge.getWeightFunction().write(_weightFilePath->getValue(), "Weight Function");
+        getWeightFunction(curve);
+        curve.write(_weightFilePath->getValue(), "Weight Function");
       }
       this->sendMessage(OFX::Message::eMessageMessage, "hdrmerge.curve.export", "Function saved in file.");
     }
@@ -178,20 +210,6 @@ void HdrMergePlugin::changedParam(const OFX::InstanceChangedArgs &args, const st
   if(paramName == kParamWeightClearKeys)
   {
     clearWeightFunctionKeyFrames();
-    return;
-  }
-  
-  if(paramName == kParamResponseFromKeys)
-  {
-    updateResponseFunctionFromKeyFrames();
-    _uptodate = false;
-    return;
-  }
-  
-  if(paramName == kParamWeightFromKeys)
-  {
-    updateWeightFunctionFromKeyFrames();
-    _uptodate = false;
     return;
   }
 }
@@ -261,7 +279,7 @@ void HdrMergePlugin::updateSourceParameters()
   }
 }
 
-bool HdrMergePlugin::loadGroups()
+bool HdrMergePlugin::loadGroup()
 { 
   //clear process data
   _ldrImages.clear();
@@ -274,67 +292,40 @@ bool HdrMergePlugin::loadGroups()
     return false;
   }
 
-  std::size_t start = (std::size_t)_srcClip->getFrameRange().min;
-  std::size_t last = (std::size_t)_srcClip->getFrameRange().max;
+  OfxRangeD frameRange = _srcClip->getFrameRange();
   
-  float targetExposure = cameraColorCalibration::common::RobertsonMerge::getExposure(_targetShutter->getValue(),
+  float targetExposure = _targetShutter->getValue();
+  /*cameraColorCalibration::common::RobertsonMerge::getExposure(_targetShutter->getValue(),
                                                                                     _targetIso->getValue(),
-                                                                                    _targetAperture->getValue());
+                                                                                    _targetAperture->getValue());*/
+  std::cout << "[load]   target EV: "<< targetExposure << "." << std::endl;
 
-  for(std::size_t image = start; image <= last; ++image)
+  _ldrImages = std::vector< cameraColorCalibration::common::Image<float> >(frameRange.max - frameRange.min + 1);
+  for(double frame = frameRange.min; frame < frameRange.max + 1.0; ++frame)
   {
-    std::cout << "[load]  Image :  " << image << std::endl;
+    std::cout << "[load]  Image :  " << frame << std::endl;
+    int inputIndex = frame - frameRange.min;
+    assert(inputIndex <= K_MAX_SOURCE_IMAGES);
+    float exposure = _shutter[inputIndex]->getValue();
+    /*cameraColorCalibration::common::RobertsonMerge::getExposure(_shutter[inputIndex]->getValue(),
+                                                                                  _iso[inputIndex]->getValue(),
+                                                                                  _aperture[inputIndex]->getValue());*/
 
-    float exposure = cameraColorCalibration::common::RobertsonMerge::getExposure(_shutter[image - start]->getValue(),
-                                                                                  _iso[image - start]->getValue(),
-                                                                                  _aperture[image - start]->getValue());
-
-    std::cout << "[load]   compute EV ("<< exposure << ") ..." << std::endl;
-    float avgLuminance = std::pow(2.f, exposure - targetExposure);
-    std::cout << "[load]   add Relative EV ("<< avgLuminance << ") ..." << std::endl;
+    std::cout << "[load]   EV:" << exposure << "." << std::endl;
+//    float avgLuminance = std::pow(2.f, exposure - targetExposure);
+    float avgLuminance = exposure; // - targetExposure;
+    std::cout << "[load]   used Relative EV: " << avgLuminance << "." << std::endl;
     _luminances.push_back( avgLuminance );
 
-    std::cout << "[load]   add Image ... " << std::endl;
-    OFX::Image *imagePtr = _srcClip->fetchImage(image);
+    OFX::Image *imagePtr = _srcClip->fetchImage(frame);
     if(imagePtr == NULL)
     {
       std::cerr << "[load] error : can't load image " << std::endl;
       return false;
     }
-    _ldrImages.emplace_back(cameraColorCalibration::common::Image<float>(imagePtr));
+    _ldrImages[inputIndex].setOfxImage(imagePtr);
   }
   return true;
-}
-
-void HdrMergePlugin::refreshResponseFunctionKeyFrames()
-{
-  clearResponseFunctionKeyFrames();
-  progressStart("Create response function keyframes", "hdrmerge.response.keyframes");
-  const double updateCoefficient = 1 / (double)_response.getSize();
-  for(std::size_t index = 0; index < _response.getSize(); ++index)
-  {
-    _responseRed->setValueAtTime(index, _response.getCurveRed()[index]);
-    _responseGreen->setValueAtTime(index, _response.getCurveGreen()[index]);
-    _responseBlue->setValueAtTime(index, _response.getCurveBlue()[index]);
-    progressUpdate(index * updateCoefficient);
-  }
-  progressEnd();
-}
-
-void HdrMergePlugin::refreshWeightFunctionKeyFrames()
-{
-  clearWeightFunctionKeyFrames();
-  progressStart("Create weight function keyframes", "hdrmerge.weight.keyframes");
-  const cameraColorCalibration::common::rgbCurve &weight = _merge.getWeightFunction();
-  const double updateCoefficient = 1 / (double)weight.getSize();
-  for(std::size_t index = 0; index < weight.getSize(); ++index)
-  {
-    _weightRed->setValueAtTime(index, weight.getCurveRed()[index]);
-    _weightGreen->setValueAtTime(index, weight.getCurveGreen()[index]);
-    _weightBlue->setValueAtTime(index, weight.getCurveBlue()[index]);
-    progressUpdate(index * updateCoefficient);
-  }
-  progressEnd();
 }
 
 void HdrMergePlugin::updateResponsePreset()
@@ -345,15 +336,11 @@ void HdrMergePlugin::updateResponsePreset()
   bool custom = (preset == cameraColorCalibration::common::eResponsePresetCustom);
   bool fromFile = (preset == cameraColorCalibration::common::eResponsePresetFromFile);
   
-  _responseLoad->setIsSecret(!fromFile);
   _responseExport->setIsSecret(!custom);
   _responseFilePath->setIsSecret(!custom && !fromFile);
-  _responseFromKeys->setIsSecret(!custom);
   _responseRed->setEnabled(custom);
   _responseGreen->setEnabled(custom);
   _responseBlue->setEnabled(custom);
-  
-  cameraColorCalibration::common::initResponseFromPreset(_response, preset);
 }
 
 void HdrMergePlugin::updateWeightPreset()
@@ -361,53 +348,138 @@ void HdrMergePlugin::updateWeightPreset()
   cameraColorCalibration::common::EPresetWeight preset;
   preset = static_cast<cameraColorCalibration::common::EPresetWeight>(_weightPreset->getValue());
   
+  bool gaussianCustom = (preset == cameraColorCalibration::common::eWeightPresetGaussianCustom); 
   bool custom = (preset == cameraColorCalibration::common::eWeightPresetCustom);
   bool fromFile = (preset == cameraColorCalibration::common::eWeightPresetFromFile);
   
-  _weightLoad->setIsSecret(!fromFile);
   _weightExport->setIsSecret(!custom);
+  _weightGaussianSize->setIsSecret(!gaussianCustom);
   _weightFilePath->setIsSecret(!custom && !fromFile);
-  _weightFromKeys->setIsSecret(!custom);
   _weightRed->setEnabled(custom);
   _weightGreen->setEnabled(custom);
   _weightBlue->setEnabled(custom);
+}
+
+void HdrMergePlugin::getResponseFunction(cameraColorCalibration::common::rgbCurve &response)
+{
+  cameraColorCalibration::common::EPresetResponse preset;
+  preset = static_cast<cameraColorCalibration::common::EPresetResponse>(_responsePreset->getValue());
   
-  if(!fromFile && !custom)
+  bool custom = (preset == cameraColorCalibration::common::eResponsePresetCustom);
+  bool fromFile = (preset == cameraColorCalibration::common::eResponsePresetFromFile);
+  
+  if(custom)
   {
-    cameraColorCalibration::common::rgbCurve weight(_merge.getWeightFunction().getSize());
-    cameraColorCalibration::common::initWeightFromPreset(weight, preset);
-    _merge.setWeightFunction(weight);
+    getResponseFunctionFromKeyFrames(response);
+    return;
+  }
+  
+  if(fromFile)
+  {
+    getFunctionFromFile(_responseFilePath->getValue(), response);
+  }
+  
+  cameraColorCalibration::common::initResponseFromPreset(response, preset);
+}
+
+void HdrMergePlugin::getWeightFunction(cameraColorCalibration::common::rgbCurve &weight)
+{
+  cameraColorCalibration::common::EPresetWeight preset;
+  preset = static_cast<cameraColorCalibration::common::EPresetWeight>(_weightPreset->getValue());
+  
+  bool custom = (preset == cameraColorCalibration::common::eWeightPresetCustom);
+  bool fromFile = (preset == cameraColorCalibration::common::eWeightPresetFromFile);
+  
+  if(custom)
+  {
+    getWeightFunctionFromKeyFrames(weight);
+    return;
+  }
+  
+  if(fromFile)
+  {
+    getFunctionFromFile(_weightFilePath->getValue(), weight);
+  }
+  
+  cameraColorCalibration::common::initWeightFromPreset(weight, _weightGaussianSize->getValue(), preset);
+}
+
+void HdrMergePlugin::getFunctionFromFile(const std::string &path, cameraColorCalibration::common::rgbCurve &curve)
+{
+  try 
+  {
+    curve.read(path);
+  }
+  catch(std::exception &e)
+  {
+    this->sendMessage(OFX::Message::eMessageError, "hdrmerge.curve.load", e.what());
+  }
+}
+  
+void HdrMergePlugin::getResponseFunctionFromKeyFrames(cameraColorCalibration::common::rgbCurve &response)
+{
+  for(std::size_t index = 0; index < response.getSize(); ++index)
+  {
+    response.getCurveRed()[index] = _responseRed->getValueAtTime(index);
+    response.getCurveGreen()[index] = _responseGreen->getValueAtTime(index);
+    response.getCurveBlue()[index] = _responseBlue->getValueAtTime(index);
   }
 }
 
-void HdrMergePlugin::updateResponseFunctionFromKeyFrames(bool sendMessage)
+void HdrMergePlugin::getWeightFunctionFromKeyFrames(cameraColorCalibration::common::rgbCurve &weight)
 {
-  for(std::size_t index = 0; index < _response.getSize(); ++index)
+  for(std::size_t index = 0; index < weight.getSize(); ++index)
   {
-    _response.getCurveRed()[index] = _responseRed->getValueAtTime(index);
-    _response.getCurveGreen()[index] = _responseGreen->getValueAtTime(index);
-    _response.getCurveBlue()[index] = _responseBlue->getValueAtTime(index);
-  }
-  if(sendMessage)
-  {
-    this->sendMessage(OFX::Message::eMessageMessage, "hdrmerge.response.update", "Response Function updated from keyFrames.");
+    weight.getCurveRed()[index] = _weightRed->getValueAtTime(index);
+    weight.getCurveGreen()[index] = _weightGreen->getValueAtTime(index);
+    weight.getCurveBlue()[index] = _weightBlue->getValueAtTime(index);
   }
 }
 
-void HdrMergePlugin::updateWeightFunctionFromKeyFrames(bool sendMessage)
+void HdrMergePlugin::refreshResponseFunctionKeyFrames()
 {
-  cameraColorCalibration::common::rgbCurve weightFunction(_merge.getWeightFunction().getSize());
-  for(std::size_t index = 0; index < weightFunction.getSize(); ++index)
+  cameraColorCalibration::common::rgbCurve response(K_QUANTIZATION);
+  getResponseFunction(response);
+  
+  this->beginEditBlock("[HdrMerge] set keyframes from response function");
+  
+  clearResponseFunctionKeyFrames();
+  
+  progressStart("Create response function keyframes", "hdrmerge.response.keyframes");
+  const double updateCoefficient = 1.0 / (double)response.getSize();
+  for(std::size_t index = 0; index < response.getSize(); ++index)
   {
-    weightFunction.getCurveRed()[index] = _weightRed->getValueAtTime(index);
-    weightFunction.getCurveGreen()[index] = _weightGreen->getValueAtTime(index);
-    weightFunction.getCurveBlue()[index] = _weightBlue->getValueAtTime(index);
+    _responseRed->setValueAtTime(index, response.getCurveRed()[index]);
+    _responseGreen->setValueAtTime(index, response.getCurveGreen()[index]);
+    _responseBlue->setValueAtTime(index, response.getCurveBlue()[index]);
+    progressUpdate(index * updateCoefficient);
   }
-  _merge.setWeightFunction(weightFunction);
-  if(sendMessage)
+  progressEnd();
+  
+  this->endEditBlock();
+}
+
+void HdrMergePlugin::refreshWeightFunctionKeyFrames()
+{
+  cameraColorCalibration::common::rgbCurve weight(K_QUANTIZATION);
+  getWeightFunction(weight);
+  
+  this->beginEditBlock("[HdrMerge] set keyframes from weight function");
+  
+  clearWeightFunctionKeyFrames();
+  
+  progressStart("Create weight function keyframes", "hdrmerge.weight.keyframes");
+  const double updateCoefficient = 1.0 / (double)weight.getSize();
+  for(std::size_t index = 0; index < weight.getSize(); ++index)
   {
-    this->sendMessage(OFX::Message::eMessageMessage, "hdrmerge.weight.update", "Weight Function updated from keyFrames.");
+    _weightRed->setValueAtTime(index, weight.getCurveRed()[index]);
+    _weightGreen->setValueAtTime(index, weight.getCurveGreen()[index]);
+    _weightBlue->setValueAtTime(index, weight.getCurveBlue()[index]);
+    progressUpdate(index * updateCoefficient);
   }
+  progressEnd();
+  
+  this->endEditBlock();
 }
 
 void HdrMergePlugin::clearResponseFunctionKeyFrames()
@@ -441,24 +513,9 @@ void HdrMergePlugin::setImageOptionsSecret(std::size_t imageIndex, bool isSecret
 
 void HdrMergePlugin::reset() 
 {
-  _uptodate = false;
   updateSourceParameters();
   updateResponsePreset();
   updateWeightPreset();
-  
-  if(static_cast<cameraColorCalibration::common::EPresetResponse>(_responsePreset->getValue()) 
-          == cameraColorCalibration::common::eResponsePresetCustom)
-  {
-    //Response Function is custom
-    updateResponseFunctionFromKeyFrames(false); //don't print message
-  }
-  
-  if(static_cast<cameraColorCalibration::common::EPresetWeight>(_weightPreset->getValue()) 
-          == cameraColorCalibration::common::eWeightPresetCustom)
-  {
-    //Weight Function is custom
-    updateWeightFunctionFromKeyFrames(false); //don't print message
-  }
 }
 
 } // namespace hdrMerge 

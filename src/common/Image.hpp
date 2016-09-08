@@ -35,13 +35,19 @@ public:
    * @brief Copy constructor 
    * @param[in] image
    */
-  //Image(const Image &image) = delete;
+  Image(const Image &other) = delete;
 
   /**
    * @brief Destructor
    * Call clean method
    */
   ~Image();
+
+  /**
+   * @brief Reset image from a, OFX Image
+   * @param[in,out] imgData
+   */
+  void setOfxImage(OFX::Image *imgData);
 
   /**
    * @brief Create image internal buffer

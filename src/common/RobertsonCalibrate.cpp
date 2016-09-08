@@ -8,10 +8,10 @@
 namespace cameraColorCalibration {
 namespace common {
 
-void RobertsonCalibrate::process(
-  const std::vector< std::vector< Image<float> > > &ldrImageGroups,
-  rgbCurve &response,
-  const std::vector< std::vector<float> > &times)
+void RobertsonCalibrate::process(const std::vector< std::vector< Image<float> > > &ldrImageGroups, 
+                                 const std::vector< std::vector<float> > &times,
+                                 const rgbCurve &weight,
+                                 rgbCurve &response)
 {
   //checks
   for (int g = 0; g < ldrImageGroups.size(); ++g)
@@ -27,8 +27,7 @@ void RobertsonCalibrate::process(
   std::size_t channelQuantization = ldrImageGroups[0][0].getChannelQuantization();
 
   //create radiance vector of image
-  _radiance.clear();
-  _radiance.resize(ldrImageGroups.size());
+  _radiance = std::vector< Image<float> >(ldrImageGroups.size());
   for(auto& radianceImg: _radiance)
   {
     radianceImg.createInternalBuffer(ldrImageGroups[0][0].getWidth(), ldrImageGroups[0][0].getHeight(), channels);
@@ -78,7 +77,7 @@ void RobertsonCalibrate::process(
   card.inverseAllValues();
   card.write("/datas/deli/log/card_inv.csv");
   //create merge operator
-  RobertsonMerge merge = RobertsonMerge(channelQuantization);
+  RobertsonMerge merge;
 
   for(std::size_t iter = 0; iter < _maxIteration; ++iter) 
   {
@@ -88,7 +87,7 @@ void RobertsonCalibrate::process(
     //initialize radiance
     for(std::size_t g = 0; g < ldrImageGroups.size(); ++g)
     {
-      merge.process(ldrImageGroups[g], _radiance[g], times[g], response);
+      merge.process(ldrImageGroups[g], times[g], weight, response, _radiance[g], 1.0f);
     }
 
     std::cout << "2) initialization new response "<< std::endl;

@@ -9,35 +9,21 @@ namespace common {
  
 class RobertsonMerge {
 public:
-    
-  /**
-   * @brief
-   */
-  RobertsonMerge(std::size_t channelQuantization);
 
   /**
    * @brief
    * @param images
    * @param radiance
    * @param times
+   * @param targetTime
    * @param response
    */
   void process(const std::vector< Image<float> > &images, 
-              Image<float> &radiance, 
-              const std::vector<float> &times, 
-              const rgbCurve &response);
-  
-  
-  void setWeightFunction(const rgbCurve& weightFunction)
-  {
-    _weight = weightFunction;
-  }
-  
-  
-  const rgbCurve& getWeightFunction() const
-  {
-    return _weight;
-  }
+                const std::vector<float> &times,
+                const rgbCurve &weight,
+                const rgbCurve &response,
+                Image<float> &radiance, 
+                float targetTime);
   
   /**
    * @brief This function obtains the "average scene luminance" EV value 
@@ -78,13 +64,10 @@ public:
     const float K = 12.07488f;
     return std::log2((shutter * iso) / (aperture * aperture * K));
     
-    //EV = log2 (fstop² / shutter time)
+    //EV = log2 (pow2(fstop) / shutter time)
     //LV = LV = EV + log2 (ISO / 100) (LV light Value as exposure)
     //return std::log2( ((aperture * aperture)/shutter) * (iso / 100) );
   }
-
-private:
-  rgbCurve  _weight;
 };
 
 } // namespace common

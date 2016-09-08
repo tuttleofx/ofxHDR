@@ -12,8 +12,8 @@ namespace hdrCalibration {
 
 HdrCalibPlugin::HdrCalibPlugin(OfxImageEffectHandle handle) : 
     OFX::ImageEffect(handle),
-    _response(1 << 12),
-    _merge(1 << 12)
+    _response(1 << 12)
+    //_merge(1 << 12)
 {
   for(std::size_t group = 0; group < K_MAX_GROUPS; ++group)
   {
@@ -69,7 +69,9 @@ void HdrCalibPlugin::render(const OFX::RenderArguments &args)
     }
 
     std::cout << "render : [calibration]" << std::endl;
-    _calibration.process(_ldrImageGroups, _response, _luminances);
+    cameraColorCalibration::common::rgbCurve weight(1 << 12);
+    weight.setGaussian();
+    _calibration.process(_ldrImageGroups,_luminances,weight, _response);
     std::cout << "render : [calibration] -- OK" << std::endl;
 
     std::cout << "render : [Display Response]" << std::endl;
@@ -174,6 +176,7 @@ void HdrCalibPlugin::changedParam(const OFX::InstanceChangedArgs &args, const st
     return;
   }
   
+  /*
   if(paramName == kParamWeightLoad)
   {
     try 
@@ -189,7 +192,9 @@ void HdrCalibPlugin::changedParam(const OFX::InstanceChangedArgs &args, const st
       this->sendMessage(OFX::Message::eMessageError, "hdrcalib.curve.load", e.what());
     }
   }
+  */
   
+  /*
   if((paramName == kParamResponseExport) || (paramName == kParamWeightExport))
   {
     try 
@@ -209,6 +214,7 @@ void HdrCalibPlugin::changedParam(const OFX::InstanceChangedArgs &args, const st
       this->sendMessage(OFX::Message::eMessageError, "hdrcalib.curve.export", e.what());
     }
   }
+  */
   
   if(paramName == kParamWeightRefreshKeys)
   {
@@ -326,8 +332,9 @@ bool HdrCalibPlugin::loadGroups()
   _ldrImageGroups.clear();
   _luminances.clear();
   
-  std::vector< cameraColorCalibration::common::Image<float> > newGroupData;
-  std::vector<float> newGroupLuminance;
+  std::size_t nbConnectedGroup = getNbConnectedInput();
+  _ldrImageGroups = std::vector< std::vector< cameraColorCalibration::common::Image<float> > >(nbConnectedGroup);
+  _luminances = std::vector< std::vector<float> >(nbConnectedGroup);
   
   for(std::size_t group = 0; group < K_MAX_GROUPS; ++group)
   {
@@ -337,12 +344,12 @@ bool HdrCalibPlugin::loadGroups()
       continue;
     }
     
-    _ldrImageGroups.push_back(newGroupData);
-    _luminances.push_back(newGroupLuminance);
-
     OFX::Clip *clip = _srcClip[group];
     std::size_t start = (std::size_t)clip->getFrameRange().min;
     std::size_t last = (std::size_t)clip->getFrameRange().max;
+    
+    _ldrImageGroups[group] = std::vector< cameraColorCalibration::common::Image<float> >(start - last + 1);
+    _luminances[group] = std::vector<float>(start - last + 1);
     
     float targetExposure = cameraColorCalibration::common::RobertsonMerge::getExposure(_targetShutter->getValue(),
                                                                                   _targetIso->getValue(),
@@ -360,7 +367,7 @@ bool HdrCalibPlugin::loadGroups()
       float avgLuminance = std::pow(2.f, exposure - targetExposure);
       std::cout << "[load]   add Relative EV ("<< avgLuminance << ") ..." << std::endl;
      
-      _luminances[group].push_back(avgLuminance);
+      _luminances[group][image] = avgLuminance;
       
       std::cout << "[load]   add Image ... " << std::endl;
       OFX::Image *imagePtr = clip->fetchImage(image);
@@ -369,7 +376,7 @@ bool HdrCalibPlugin::loadGroups()
         std::cerr << "[load] error : can't load image " << std::endl;
         return false;
       }
-      _ldrImageGroups[group].emplace_back(cameraColorCalibration::common::Image<float>(imagePtr));
+      _ldrImageGroups[group][image].setOfxImage(imagePtr);
     }
   }
   return true;
@@ -395,6 +402,7 @@ void HdrCalibPlugin::refreshResponseFunctionKeyFrames()
 
 void HdrCalibPlugin::refreshWeightFunctionKeyFrames()
 {
+  /*
   clearWeightFunctionKeyFrames();
   progressStart("Create weight function keyframes", "hdrcalib.weight.keyframes");
   const cameraColorCalibration::common::rgbCurve &weight = _merge.getWeightFunction();
@@ -407,10 +415,12 @@ void HdrCalibPlugin::refreshWeightFunctionKeyFrames()
     progressUpdate(index * updateCoefficient);
   }
   progressEnd();
+  */
 }
 
 void HdrCalibPlugin::updateWeightPreset()
 {
+  /*
   cameraColorCalibration::common::EPresetWeight preset;
   preset = static_cast<cameraColorCalibration::common::EPresetWeight>(_weightPreset->getValue());
   
@@ -431,10 +441,12 @@ void HdrCalibPlugin::updateWeightPreset()
     cameraColorCalibration::common::initWeightFromPreset(weight, preset);
     _merge.setWeightFunction(weight);
   }
+  */
 }
 
 void HdrCalibPlugin::updateWeightFunctionFromKeyFrames(bool sendMessage)
 {
+  /*
   cameraColorCalibration::common::rgbCurve weightFunction(_merge.getWeightFunction().getSize());
   for(std::size_t index = 0; index < weightFunction.getSize(); ++index)
   {
@@ -447,6 +459,7 @@ void HdrCalibPlugin::updateWeightFunctionFromKeyFrames(bool sendMessage)
   {
     this->sendMessage(OFX::Message::eMessageMessage, "hdrcalib.weight.update", "Weight Function updated from keyFrames.");
   }
+  */
 }
 
 void HdrCalibPlugin::clearResponseFunctionKeyFrames()

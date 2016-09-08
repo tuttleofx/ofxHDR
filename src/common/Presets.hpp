@@ -29,6 +29,7 @@ enum EPresetWeight
   eWeightPresetFromFile = 0,
   eWeightPresetLinear,
   eWeightPresetGaussian,
+  eWeightPresetGaussianCustom,
   eWeightPresetTriangular,
   eWeightPresetPlateau,
   eWeightPresetFlat,
@@ -39,6 +40,7 @@ static const std::vector< std::pair<std::string, std::string> > kPresetStringWei
   {"From File", ""},
   {"Linear", ""},
   {"Gaussian", ""},
+  {"Gaussian Custom", ""},
   {"Triangular", ""},
   {"Plateau", ""},
   {"Flat" , ""},
@@ -57,7 +59,7 @@ void initResponseFromPreset(rgbCurve& response, EPresetResponse preset);
  * @param weight
  * @param preset
  */
-void initWeightFromPreset(rgbCurve& weight, EPresetWeight preset); 
+void initWeightFromPreset(rgbCurve& weight, double gaussianSize, EPresetWeight preset); 
 
   
 } // namespace common 

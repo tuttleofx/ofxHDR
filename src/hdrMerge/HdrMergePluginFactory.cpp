@@ -186,6 +186,7 @@ void HdrMergePluginFactory::describeInContext(OFX::ImageEffectDescriptor& desc, 
       param->setHint("Type of response function to use");
       param->appendOptions(cameraColorCalibration::common::kPresetStringResponse);
       param->setDefault(cameraColorCalibration::common::eResponsePresetLinear);
+      param->setEvaluateOnChange(true);
       param->setParent(*groupResponse);
     }
     
@@ -196,15 +197,6 @@ void HdrMergePluginFactory::describeInContext(OFX::ImageEffectDescriptor& desc, 
       param->setStringType(OFX::eStringTypeFilePath);
       param->setEvaluateOnChange(false);
       param->setParent(*groupResponse);
-    }
-    
-    {
-      OFX::PushButtonParamDescriptor *param = desc.definePushButtonParam(kParamResponseLoad);
-      param->setLabel("Load Response Function");
-      param->setHint("Import a response function from a file.");
-      param->setEnabled(true);
-      param->setParent(*groupResponse);
-      param->setLayoutHint(OFX::eLayoutHintNoNewLine);
     }
     
     {
@@ -220,15 +212,6 @@ void HdrMergePluginFactory::describeInContext(OFX::ImageEffectDescriptor& desc, 
       OFX::PushButtonParamDescriptor *param = desc.definePushButtonParam(kParamResponseRefreshKeys);
       param->setLabel("Refresh Keyframes");
       param->setHint("Refresh Keyframes for the current response function");
-      param->setEnabled(true);
-      param->setParent(*groupResponse);
-      param->setLayoutHint(OFX::eLayoutHintNoNewLine);
-    }
-    
-    {
-      OFX::PushButtonParamDescriptor *param = desc.definePushButtonParam(kParamResponseFromKeys);
-      param->setLabel("Update from Keyframes");
-      param->setHint("Update response function with curent keyframes");
       param->setEnabled(true);
       param->setParent(*groupResponse);
       param->setLayoutHint(OFX::eLayoutHintNoNewLine);
@@ -251,7 +234,7 @@ void HdrMergePluginFactory::describeInContext(OFX::ImageEffectDescriptor& desc, 
       param->setIncrement(1);
       param->setDisplayRange(0, 20);
       param->setAnimates(true);
-      param->setEvaluateOnChange(false);
+      param->setEvaluateOnChange(true);
       param->setParent(*groupResponse);
     }
     
@@ -264,7 +247,7 @@ void HdrMergePluginFactory::describeInContext(OFX::ImageEffectDescriptor& desc, 
       param->setIncrement(1);
       param->setDisplayRange(0, 20);
       param->setAnimates(true);
-      param->setEvaluateOnChange(false);
+      param->setEvaluateOnChange(true);
       param->setParent(*groupResponse);
     }
     
@@ -277,7 +260,7 @@ void HdrMergePluginFactory::describeInContext(OFX::ImageEffectDescriptor& desc, 
       param->setIncrement(1);
       param->setDisplayRange(0, 20);
       param->setAnimates(true);
-      param->setEvaluateOnChange(false);
+      param->setEvaluateOnChange(true);
       param->setParent(*groupResponse);
     }
   }
@@ -294,6 +277,20 @@ void HdrMergePluginFactory::describeInContext(OFX::ImageEffectDescriptor& desc, 
       param->setHint("Type of weight function to use");
       param->appendOptions(cameraColorCalibration::common::kPresetStringWeight);
       param->setDefault(cameraColorCalibration::common::eWeightPresetGaussian);
+      param->setEvaluateOnChange(true);
+      param->setParent(*groupWeight);
+    }
+    
+    {
+      OFX::DoubleParamDescriptor *param = desc.defineDoubleParam(kParamWeightGaussianCustom);
+      param->setLabel("Gaussian size");
+      param->setHint("Gaussian size.");
+      param->setDefault(4);
+      param->setIncrement(1);
+      param->setDisplayRange(1, 6);
+      param->setAnimates(false);
+      param->setEnabled(true);
+      param->setEvaluateOnChange(true);
       param->setParent(*groupWeight);
     }
     
@@ -302,17 +299,8 @@ void HdrMergePluginFactory::describeInContext(OFX::ImageEffectDescriptor& desc, 
       param->setLabel("Weight Function File Path");
       param->setHint("File path for the weight function file."); 
       param->setStringType(OFX::eStringTypeFilePath);
-      param->setEvaluateOnChange(false);
+      param->setEvaluateOnChange(true);
       param->setParent(*groupWeight);
-    }
-    
-    {
-      OFX::PushButtonParamDescriptor *param = desc.definePushButtonParam(kParamWeightLoad);
-      param->setLabel("Load Weight Function");
-      param->setHint("Import a weight function from a file.");
-      param->setEnabled(true);
-      param->setParent(*groupWeight);
-      param->setLayoutHint(OFX::eLayoutHintNoNewLine);
     }
     
     {
@@ -328,15 +316,6 @@ void HdrMergePluginFactory::describeInContext(OFX::ImageEffectDescriptor& desc, 
       OFX::PushButtonParamDescriptor *param = desc.definePushButtonParam(kParamWeightRefreshKeys);
       param->setLabel("Refresh Keyframes");
       param->setHint("Refresh Keyframes for the current weight function");
-      param->setEnabled(true);
-      param->setParent(*groupWeight);
-      param->setLayoutHint(OFX::eLayoutHintNoNewLine);
-    }
-    
-    {
-      OFX::PushButtonParamDescriptor *param = desc.definePushButtonParam(kParamWeightFromKeys);
-      param->setLabel("Update from Keyframes");
-      param->setHint("Update weight function with curent keyframes");
       param->setEnabled(true);
       param->setParent(*groupWeight);
       param->setLayoutHint(OFX::eLayoutHintNoNewLine);
@@ -360,7 +339,7 @@ void HdrMergePluginFactory::describeInContext(OFX::ImageEffectDescriptor& desc, 
       param->setDisplayRange(0, 1);
       param->setAnimates(true);
       param->setEnabled(false);
-      param->setEvaluateOnChange(false);
+      param->setEvaluateOnChange(true);
       param->setParent(*groupWeight);
     }
     
@@ -374,7 +353,7 @@ void HdrMergePluginFactory::describeInContext(OFX::ImageEffectDescriptor& desc, 
       param->setDisplayRange(0, 1);
       param->setAnimates(true);
       param->setEnabled(false);
-      param->setEvaluateOnChange(false);
+      param->setEvaluateOnChange(true);
       param->setParent(*groupWeight);
     }
     
@@ -388,8 +367,35 @@ void HdrMergePluginFactory::describeInContext(OFX::ImageEffectDescriptor& desc, 
       param->setDisplayRange(0, 1);
       param->setAnimates(true);
       param->setEnabled(false);
-      param->setEvaluateOnChange(false);
+      param->setEvaluateOnChange(true);
       param->setParent(*groupWeight);
+    }
+  }
+  
+  //Debug group
+  {
+    OFX::GroupParamDescriptor *groupDebug = desc.defineGroupParam(kParamGroupDebug);
+    groupDebug->setLabel("Debug");
+    groupDebug->setAsTab();
+    
+    {
+      OFX::BooleanParamDescriptor *param = desc.defineBooleanParam(kParamDebugActive);
+      param->setLabel("Active Debug");
+      param->setHint("Output Image without modifications.");
+      param->setDefault(false);
+      param->setEvaluateOnChange(true);
+      param->setParent(*groupDebug);
+    }
+    
+    {
+      OFX::IntParamDescriptor *param = desc.defineIntParam(kParamDebugOutput);
+      param->setLabel("Output Image");
+      param->setHint("Output Image without modifications.");
+      param->setDefault(1);
+      param->setRange(1, K_MAX_SOURCE_IMAGES);
+      param->setDisplayRange(1, K_MAX_SOURCE_IMAGES);
+      param->setEvaluateOnChange(true);
+      param->setParent(*groupDebug);
     }
   }
   

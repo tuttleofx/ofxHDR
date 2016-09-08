@@ -15,6 +15,7 @@ rgbCurve::rgbCurve(std::size_t size)
   {
     curve.resize(size);
   }
+  setZero();
 }
 
 rgbCurve::rgbCurve(const std::string &path)
@@ -40,12 +41,12 @@ void rgbCurve::setGamma()
   }
 }
 
-void rgbCurve::setGaussian()
+void rgbCurve::setGaussian(double size)
 {
   const float coefficient = 1.f / (static_cast<float>(getSize() - 1) / 4.0f);
   for(std::size_t i = 0; i < getSize(); ++i)
   {
-    float factor = i * coefficient - 2.0f;
+    float factor = i / size * coefficient - 2.0f / size;
     setAllChannels(i, std::exp( -factor * factor ));
   }
 }
@@ -166,18 +167,16 @@ void rgbCurve::interpolateMissingValues()
 
 float& rgbCurve::operator() (float sample, std::size_t channel)
 {
-  assert(sample <= 1.0f);
   assert(channel < _data.size());
   return _data[channel][getIndex(sample)];
 }
 
 float rgbCurve::operator() (float sample, std::size_t channel) const
 {
-  assert(sample <= 1.0f);
   assert(channel < _data.size());
   return _data[channel][getIndex(sample)];
 }
-    
+
 const rgbCurve rgbCurve::operator+(const rgbCurve &other) const
 {
   return sum(other);

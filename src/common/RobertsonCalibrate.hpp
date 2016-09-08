@@ -25,9 +25,10 @@ public:
    * @param[out] response
    * @param[in] times
    */
-  void process(const std::vector< std::vector< Image<float> > > &groups, 
-                rgbCurve &response, 
-                const std::vector< std::vector<float> > &times);
+  void process(const std::vector< std::vector< Image<float> > > &ldrImageGroups, 
+               const std::vector< std::vector<float> > &times,
+               const rgbCurve &weight,
+               rgbCurve &response);
 
 
   int getMaxIteration() const 

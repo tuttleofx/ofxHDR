@@ -76,7 +76,7 @@ public:
   /**
    *@brief Set curves to gaussian
    */
-  void setGaussian();
+  void setGaussian(double size = 1);
   
   /**
    *@brief Set curves to triangular
@@ -182,7 +182,6 @@ public:
    * @param[in] path
    */
   void read(const std::string &path);
-  
 
   bool isEmpty() const
   {
@@ -191,9 +190,14 @@ public:
 
   std::size_t getIndex(float sample) const
   {
-    return size_t(std::round(sample * (getSize() - 1)));
+    assert(getSize() != 0);
+    if(sample < 0.0f)
+      return 0;
+    if(sample > 1.0f)
+      return getSize() - 1;
+    return std::size_t(std::round(sample * (getSize() - 1)));
   }
- 
+
   std::size_t getSize() const
   {
     return _data.front().size();
