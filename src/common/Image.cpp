@@ -45,7 +45,10 @@ Image<DataType>::Image(OFX::Image *imgData)
 template<typename DataType>
 Image<DataType>::~Image()
 {
-  delete _imgPtr;
+  if(!_hasOwnership)
+  {
+    delete _imgPtr;
+  }
   clear();
 }
   
@@ -54,6 +57,9 @@ void Image<DataType>::setOfxImage(OFX::Image *imgData)
 {
   std::size_t width = imgData->getRegionOfDefinition().x2 - imgData->getRegionOfDefinition().x1;
   std::size_t height = imgData->getRegionOfDefinition().y2 - imgData->getRegionOfDefinition().y1;
+  
+  //assert(width > 0);
+  //assert(height > 0);
   
   //copy the pointer for delete
   _imgPtr = imgData;
@@ -64,8 +70,9 @@ void Image<DataType>::setOfxImage(OFX::Image *imgData)
 template<typename DataType>
 void Image<DataType>::createInternalBuffer(std::size_t width, std::size_t height, std::size_t nbChannels)
 {
+  _hasOwnership = true; //important
   clear();
-  _hasOwnership = 1;
+  _hasOwnership = true;
   _nbChannels = nbChannels;
   _width = width;
   _height = height;
@@ -78,9 +85,10 @@ void Image<DataType>::createInternalBuffer(std::size_t width, std::size_t height
 template<typename DataType>
 void Image<DataType>::setExternalBuffer(DataType *data, std::size_t width, std::size_t height, std::size_t channels, std::size_t rowBufferSize)
 {
+  _hasOwnership = false; //important
   clear();
   _data = data;
-  _hasOwnership = 0;
+  _hasOwnership = false;
   _width = width;
   _height = height;
   _nbChannels = channels;

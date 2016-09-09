@@ -1,7 +1,9 @@
 #include "HdrCalibPluginFactory.hpp"
 #include "HdrCalibPluginDefinition.hpp"
 #include "HdrCalibPlugin.hpp"
+#include "../hdrBase/HdrBasePluginDescriber.hpp"
 #include "../common/Presets.hpp"
+#include "../hdrBase/HdrBasePluginDefinition.hpp"
 
 
 namespace cameraColorCalibration {
@@ -43,22 +45,7 @@ void HdrCalibPluginFactory::describe(OFX::ImageEffectDescriptor& desc)
 
 void HdrCalibPluginFactory::describeInContext(OFX::ImageEffectDescriptor& desc, OFX::ContextEnum context)
 {
-  //Input Clips
-  for(std::size_t group = 0; group < K_MAX_GROUPS; ++group)
-  {
-    OFX::ClipDescriptor *srcClip = desc.defineClip(kClip(group));
-    
-    srcClip->addSupportedComponent(OFX::ePixelComponentRGBA);
-    srcClip->setTemporalClipAccess(true);
-    srcClip->setSupportsTiles(false);
-    srcClip->setIsMask(false);
-    srcClip->setOptional(group > 0);
-  }
-  
-  //Output clip
-  OFX::ClipDescriptor *dstClip = desc.defineClip(kOfxImageEffectOutputClipName);
-  dstClip->addSupportedComponent(OFX::ePixelComponentRGBA);
-  dstClip->setSupportsTiles(false);
+  cameraColorCalibration::hdrBase::describeClip(desc, context, K_NB_CLIPS);
   
   //Calibration Group
   {
@@ -88,129 +75,11 @@ void HdrCalibPluginFactory::describeInContext(OFX::ImageEffectDescriptor& desc, 
       param->setLayoutHint(OFX::eLayoutHintDivider);
     }
     
-    //HDR Groups
-    for(std::size_t group = 0; group < K_MAX_GROUPS; ++group)
-    {
-      OFX::GroupParamDescriptor *groupHdr = desc.defineGroupParam(kParamGroupHdr(group));
-      groupHdr->setLabel("HDR " + kClip(group));
-      groupHdr->setAsTab();
-      groupHdr->setParent(*groupCalibration);
-    
-      //Image Groups
-      for(std::size_t image = 0; image < K_MAX_IMAGES_PER_GROUP; ++image)
-      {
-        OFX::GroupParamDescriptor *groupImage = desc.defineGroupParam(kParamGroupImage(group, image));
-        groupImage->setLabel("Image " + std::to_string(image + 1));
-        groupImage->setOpen(false);
-        groupImage->setParent(*groupHdr);
-        
-        {
-          OFX::IntParamDescriptor *param = desc.defineIntParam(kParamImageIso(group, image));
-          param->setLabel("ISO");
-          param->setHint("Image iso value");
-          param->setRange(100, 500000);
-          param->setDisplayRange(100, 9000);
-          param->setDefault(100);
-          param->setAnimates(false);
-          param->setEvaluateOnChange(false);
-          param->setParent(*groupImage);
-        }
-        
-        {
-          OFX::DoubleParamDescriptor *param = desc.defineDoubleParam(kParamImageAperture(group, image));
-          param->setLabel("Aperture");
-          param->setHint("Image aperture value");
-          param->setRange(0, 60);
-          param->setDisplayRange(0, 40);
-          param->setIncrement(0.1);
-          param->setDefault(1.4);
-          param->setAnimates(false);
-          param->setEvaluateOnChange(false);
-          param->setParent(*groupImage);
-        }
-
-        {
-          OFX::DoubleParamDescriptor *param = desc.defineDoubleParam(kParamImageShutter(group, image));
-          param->setLabel("Shutter");
-          param->setHint("Image shutter speed value");
-          param->setRange(0, 7200);
-          param->setDisplayRange(0, 4);
-          param->setIncrement(0.001);
-          param->setDefault(0.5);
-          param->setAnimates(false);
-          param->setEvaluateOnChange(false);
-          param->setParent(*groupImage);
-        }
-        
-        {
-          OFX::DoubleParamDescriptor *param = desc.defineDoubleParam(kParamImageEv(group, image));
-          param->setLabel("EV");
-          param->setHint("Image global exposure value");
-          param->setDisplayRange(-5, 15);
-          param->setDefault(0);
-          param->setAnimates(false);
-          param->setEnabled(false);
-          param->setDigits(5);
-          param->setEvaluateOnChange(false);
-          param->setParent(*groupImage);
-        }
-      }
-    }
+    cameraColorCalibration::hdrBase::describeInputsGroup(desc, context, K_NB_CLIPS)->setParent(*groupCalibration);
   }
   
   //Target Group
-  {
-    OFX::GroupParamDescriptor *groupTarget = desc.defineGroupParam(kParamGroupTarget);
-    groupTarget->setLabel("Target");
-    groupTarget->setAsTab();
-
-    {
-      OFX::IntParamDescriptor *param = desc.defineIntParam(kParamTargetImageIso);
-      param->setLabel("ISO");
-      param->setHint("Target image iso value");
-      param->setRange(100, 500000);
-      param->setDisplayRange(100, 9000);
-      param->setDefault(100);
-      param->setAnimates(false);
-      param->setParent(*groupTarget);
-    }
-
-    {
-      OFX::DoubleParamDescriptor *param = desc.defineDoubleParam(kParamTargetImageAperture);
-      param->setLabel("Aperture");
-      param->setHint("Target image aperture value");
-      param->setRange(0, 60);
-      param->setDisplayRange(0, 40);
-      param->setIncrement(0.1);
-      param->setDefault(1.4);
-      param->setAnimates(false);
-      param->setParent(*groupTarget);
-    }
-
-    {
-      OFX::DoubleParamDescriptor *param = desc.defineDoubleParam(kParamTargetImageShutter);
-      param->setLabel("Shutter");
-      param->setHint("Target image shutter speed value");
-      param->setRange(0, 7200);
-      param->setDisplayRange(0, 4);
-      param->setIncrement(0.001);
-      param->setDefault(0.5);
-      param->setAnimates(false);
-      param->setParent(*groupTarget);
-    }
-
-    {
-      OFX::DoubleParamDescriptor *param = desc.defineDoubleParam(kParamTargetImageEv);
-      param->setLabel("EV");
-      param->setHint("Target image global exposure value");
-      param->setDisplayRange(-5, 15);
-      param->setDefault(0);
-      param->setAnimates(false);
-      param->setEnabled(false);
-      param->setDigits(5);
-      param->setParent(*groupTarget);
-    }
-  }
+  cameraColorCalibration::hdrBase::describeTargetGroup(desc, context);
 
   //Algorithm options group
   {
@@ -244,194 +113,22 @@ void HdrCalibPluginFactory::describeInContext(OFX::ImageEffectDescriptor& desc, 
   }
   
   //Weight group
-  {
-    OFX::GroupParamDescriptor *groupWeight = desc.defineGroupParam(kParamGroupWeight);
-    groupWeight->setLabel("Weight");
-    groupWeight->setAsTab();
-    
-    {
-      OFX::ChoiceParamDescriptor *param = desc.defineChoiceParam(kParamWeightPreset);
-      param->setLabel("Weight Function");
-      param->setHint("Type of weight function to use");
-      param->appendOptions(cameraColorCalibration::common::kPresetStringWeight);
-      param->setDefault(cameraColorCalibration::common::eWeightPresetGaussian);
-      param->setParent(*groupWeight);
-    }
-    
-    {
-      OFX::StringParamDescriptor *param = desc.defineStringParam(kParamWeightFilePath);
-      param->setLabel("Weight Function File Path");
-      param->setHint("File path for the weight function file."); 
-      param->setStringType(OFX::eStringTypeFilePath);
-      param->setEvaluateOnChange(false);
-      param->setParent(*groupWeight);
-    }
-    
-    {
-      OFX::PushButtonParamDescriptor *param = desc.definePushButtonParam(kParamWeightLoad);
-      param->setLabel("Load Weight Function");
-      param->setHint("Import a weight function from a file.");
-      param->setEnabled(true);
-      param->setParent(*groupWeight);
-      param->setLayoutHint(OFX::eLayoutHintNoNewLine);
-    }
-    
-    {
-      OFX::PushButtonParamDescriptor *param = desc.definePushButtonParam(kParamWeightExport);
-      param->setLabel("Export Weight Function");
-      param->setHint("Save the weight function in a file.");
-      param->setEnabled(true);
-      param->setParent(*groupWeight);
-      param->setLayoutHint(OFX::eLayoutHintDivider);
-    }
-    
-    {
-      OFX::PushButtonParamDescriptor *param = desc.definePushButtonParam(kParamWeightRefreshKeys);
-      param->setLabel("Refresh Keyframes");
-      param->setHint("Refresh Keyframes for the current weight function");
-      param->setEnabled(true);
-      param->setParent(*groupWeight);
-      param->setLayoutHint(OFX::eLayoutHintNoNewLine);
-    }
-    
-    {
-      OFX::PushButtonParamDescriptor *param = desc.definePushButtonParam(kParamWeightFromKeys);
-      param->setLabel("Update from Keyframes");
-      param->setHint("Update weight function with curent keyframes");
-      param->setEnabled(true);
-      param->setParent(*groupWeight);
-      param->setLayoutHint(OFX::eLayoutHintNoNewLine);
-    }
-    
-    {
-      OFX::PushButtonParamDescriptor *param = desc.definePushButtonParam(kParamWeightClearKeys);
-      param->setLabel("Clear Keyframes");
-      param->setHint("Delete all keyframes");
-      param->setEnabled(true);
-      param->setParent(*groupWeight);
-    }
-    
-    {
-      OFX::DoubleParamDescriptor *param = desc.defineDoubleParam(kParamWeightRed);
-      param->setLabel("Red");
-      param->setHint("Red weight function.");
-      param->setDefault(0);
-      param->setRange(0, 1);
-      param->setIncrement(0.001);
-      param->setDisplayRange(0, 1);
-      param->setAnimates(true);
-      param->setEnabled(false);
-      param->setEvaluateOnChange(false);
-      param->setParent(*groupWeight);
-    }
-    
-    {
-      OFX::DoubleParamDescriptor *param = desc.defineDoubleParam(kParamWeightGreen);
-      param->setLabel("Green");
-      param->setHint("Green weight function.");
-      param->setDefault(0);
-      param->setRange(0, 1);
-      param->setIncrement(0.001);
-      param->setDisplayRange(0, 1);
-      param->setAnimates(true);
-      param->setEnabled(false);
-      param->setEvaluateOnChange(false);
-      param->setParent(*groupWeight);
-    }
-    
-    {
-      OFX::DoubleParamDescriptor *param = desc.defineDoubleParam(kParamWeightBlue);
-      param->setLabel("Blue");
-      param->setHint("Blue weight function.");
-      param->setDefault(0);
-      param->setRange(0, 1);
-      param->setIncrement(0.001);
-      param->setDisplayRange(0, 1);
-      param->setAnimates(true);
-      param->setEnabled(false);
-      param->setEvaluateOnChange(false);
-      param->setParent(*groupWeight);
-    }
-  }
+  cameraColorCalibration::hdrBase::describeWeightGroup(desc, context);
   
   //Response group
-  {
-    OFX::GroupParamDescriptor *groupResponse = desc.defineGroupParam(kParamGroupResponse);
-    groupResponse->setLabel("Response");
-    groupResponse->setAsTab();
-
-    {
-      OFX::StringParamDescriptor *param = desc.defineStringParam(kParamResponseFilePath);
-      param->setLabel("Export path");
-      param->setHint("Export path for the response file."); 
-      param->setStringType(OFX::eStringTypeFilePath);
-      param->setEvaluateOnChange(false);
-      param->setParent(*groupResponse);
-      param->setLayoutHint(OFX::eLayoutHintNoNewLine);
-    }
-    
-    {
-      OFX::PushButtonParamDescriptor *param = desc.definePushButtonParam(kParamResponseExport);
-      param->setLabel("Export Response");
-      param->setHint("Save the calculated response in a file.");
-      param->setEnabled(false);
-      param->setParent(*groupResponse);
-      param->setLayoutHint(OFX::eLayoutHintDivider);
-    }
-    
-    {
-      OFX::DoubleParamDescriptor *param = desc.defineDoubleParam(kParamResponseRed);
-      param->setLabel("Red");
-      param->setHint("Red response.");
-      param->setDefault(0);
-      param->setRange(0, 4096);
-      param->setIncrement(1);
-      param->setDisplayRange(0, 4096);
-      param->setAnimates(false);
-      param->setEvaluateOnChange(false);
-      param->setParent(*groupResponse);
-    }
-    
-    {
-      OFX::DoubleParamDescriptor *param = desc.defineDoubleParam(kParamResponseGreen);
-      param->setLabel("Green");
-      param->setHint("Green response.");
-      param->setDefault(0);
-      param->setRange(0, 4096);
-      param->setIncrement(1);
-      param->setDisplayRange(0, 4096);
-      param->setAnimates(false);
-      param->setEvaluateOnChange(false);
-      param->setParent(*groupResponse);
-    }
-    
-    {
-      OFX::DoubleParamDescriptor *param = desc.defineDoubleParam(kParamResponseBlue);
-      param->setLabel("Blue");
-      param->setHint("Blue response.");
-      param->setDefault(0);
-      param->setRange(0, 4096);
-      param->setIncrement(1);
-      param->setDisplayRange(0, 4096);
-      param->setAnimates(false);
-      param->setEvaluateOnChange(false);
-      param->setParent(*groupResponse);
-    }
-  }
+  cameraColorCalibration::hdrBase::describeResponseGroup(desc, context, false);
   
-  {
-    OFX::IntParamDescriptor *param = desc.defineIntParam(kParamForceInvalidation);
-    param->setLabel("Force Invalidation");
-    param->setHint("Allow the plugin to force the host to render");
-    param->setIsSecret(true);
-    param->setEnabled(false);
-    param->setCanUndo(false);
-  }
+  //Debug group
+  cameraColorCalibration::hdrBase::describeDebugGroup(desc, context);
+  
+  //Invalidation
+  cameraColorCalibration::hdrBase::describeInvalidation(desc, context);
+  
 }
 
 OFX::ImageEffect* HdrCalibPluginFactory::createInstance(OfxImageEffectHandle handle, OFX::ContextEnum context)
 {
-  return new HdrCalibPlugin(handle);
+  return new HdrCalibPlugin(handle, K_NB_CLIPS);
 }
 
 } // namespace hdrCalibration

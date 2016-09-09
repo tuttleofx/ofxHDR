@@ -69,13 +69,11 @@ void RobertsonCalibrate::process(const std::vector< std::vector< Image<float> > 
       }
     }
   }
-  card.write("/datas/deli/log/card.csv");
   card.interpolateMissingValues();
-  card.write("/datas/deli/log/card_inter.csv");
   
   //inverse cardinal curve value (for optimized division in the loop)
   card.inverseAllValues();
-  card.write("/datas/deli/log/card_inv.csv");
+
   //create merge operator
   RobertsonMerge merge;
 
@@ -123,17 +121,13 @@ void RobertsonCalibrate::process(const std::vector< std::vector< Image<float> > 
         }
       }
     }
-    newResponse.write("/datas/deli/log/iter_"+std::to_string(iter)+"_unorm__result_dresponse.csv");
     newResponse.interpolateMissingValues();
-    newResponse.write("/datas/deli/log/iter_"+std::to_string(iter)+"_unorm__result_inter_dresponse.csv");
     //dividing the response by the cardinal curve
     newResponse *= card;
     
     std::cout << "4) normalize response"<< std::endl;
     //normalization
-    newResponse.write("/datas/deli/log/iter_"+std::to_string(iter)+"_unorm_response.csv");
     newResponse.normalize();
-    newResponse.write("/datas/deli/log/iter_"+std::to_string(iter)+"_response.csv");
     
     std::cout << "5) compute difference"<< std::endl;    
     //calculate difference between the old response and the new one
