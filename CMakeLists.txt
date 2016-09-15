@@ -19,3 +19,8 @@ add_subdirectory("${PROJECT_SOURCE_DIR}/openfx")
 # Add plugin source 
 add_subdirectory("${PROJECT_SOURCE_DIR}/src")
 
+install(
+  DIRECTORY scripts
+  DESTINATION .
+  )
+
