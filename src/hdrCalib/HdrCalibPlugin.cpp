@@ -68,13 +68,13 @@ void HdrCalibPlugin::render(const OFX::RenderArguments &args)
   }
   
   std::cout << "render : [output] fetch"  << std::endl;
-  OFX::Image **outputPtr;
+  OFX::Image *outputPtr;
   if(!loadOutput(outputPtr, args.time))
   {
     std::cout << "render : [output clip] is NULL" << std::endl;
     return;
   }
-  cameraColorCalibration::common::Image<float> output(*outputPtr);
+  cameraColorCalibration::common::Image<float> output(outputPtr);
   
   //Debug Render
   if(renderDebug(output, groupIndex))

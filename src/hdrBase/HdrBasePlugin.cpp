@@ -250,10 +250,10 @@ bool HdrBasePlugin::loadSources()
   return true;
 }
 
-bool HdrBasePlugin::loadOutput(OFX::Image **outputPtr, double time)
+bool HdrBasePlugin::loadOutput(OFX::Image *& outputPtr, double time)
 {
-  *outputPtr = _dstClip->fetchImage(time);
-  return (*outputPtr != NULL);
+  outputPtr = _dstClip->fetchImage(time);
+  return outputPtr != NULL;
 }
 
 void HdrBasePlugin::updateConnectedClipIndexCollection()

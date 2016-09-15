@@ -130,7 +130,7 @@ public:
    * @brief load output image pointer
    * @param outputPtr
    */
-  bool loadOutput(OFX::Image **outputPtr, double time);
+  bool loadOutput(OFX::Image *& outputPtr, double time);
   
   /**
    * @brief Update collection of connected clip indexes
